@@ -5,6 +5,12 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  /* ApplyWise brand colours */
+  --color-navy: #0b4f6c;
+  --color-green: #1ec97e;
+  --color-amber: #f5a623;
+  --color-red: #e63946;
 }
 
 @media (prefers-color-scheme: dark) {
