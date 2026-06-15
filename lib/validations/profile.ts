@@ -34,11 +34,26 @@ export const step2Schema = z.object({
   province:                z.string().min(1, 'Please select a province'),
   physical_address:        addressSchema,
   postal_same_as_physical: z.boolean(),
-  postal_address:          addressSchema.optional(),
-}).refine(
-  (data) => data.postal_same_as_physical || !!data.postal_address,
-  { message: 'Postal address is required', path: ['postal_address'] }
-);
+  // Loose schema so an empty default object doesn't fail when postal_same_as_physical is true.
+  // Real validation happens in superRefine below.
+  postal_address: z.object({
+    street:      z.string(),
+    suburb:      z.string(),
+    city:        z.string(),
+    postal_code: z.string(),
+  }).optional(),
+}).superRefine((data, ctx) => {
+  if (data.postal_same_as_physical) return;
+  const pa = data.postal_address;
+  if (!pa?.street?.trim())
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Street address is required', path: ['postal_address', 'street'] });
+  if (!pa?.suburb?.trim())
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Suburb is required', path: ['postal_address', 'suburb'] });
+  if (!pa?.city?.trim())
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'City is required', path: ['postal_address', 'city'] });
+  if (!pa?.postal_code?.match(/^\d{4}$/))
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Postal code must be 4 digits', path: ['postal_address', 'postal_code'] });
+});
 
 export type Step2Data = z.infer<typeof step2Schema>;
 
