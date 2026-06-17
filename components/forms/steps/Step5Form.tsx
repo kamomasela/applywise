@@ -112,14 +112,6 @@ export default function Step5Form({ userId, existingDocuments = [] }: Step5FormP
   );
 
   const handleFinish = async () => {
-    const requiredTypes = DOC_SLOTS.filter((s) => s.required).map((s) => s.type);
-    const missing = requiredTypes.filter((t) => !docs[t]);
-
-    if (missing.length > 0) {
-      toast.error('Please upload all required documents before continuing.');
-      return;
-    }
-
     setIsSubmitting(true);
 
     // Mark profile as complete
