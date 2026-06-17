@@ -10,11 +10,13 @@ export default async function ProfileCompletePage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [{ data: profile }, { data: academic }, { data: documents }] = await Promise.all([
+  const [{ data: profile }, { data: academicRows }, { data: documents }] = await Promise.all([
     supabase.from('profiles').select('first_name,last_name').eq('id', user.id).single(),
-    supabase.from('academic_details').select('subjects,aps_score').eq('profile_id', user.id).maybeSingle(),
+    supabase.from('academic_details').select('subjects,aps_score').eq('profile_id', user.id)
+      .order('created_at', { ascending: false }).limit(1),
     supabase.from('documents').select('id').eq('profile_id', user.id),
   ]);
+  const academic = academicRows?.[0] ?? null;
 
   const name = [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || 'Learner';
   const aps  = academic?.aps_score ?? (Array.isArray(academic?.subjects) ? calculateAPS(academic.subjects) : 0);
