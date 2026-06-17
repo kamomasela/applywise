@@ -20,9 +20,10 @@ import StepProgress from '@/components/ui/StepProgress';
 interface Step1FormProps {
   userId: string;
   defaultValues?: Partial<Step1Data>;
+  completedSteps?: number[];
 }
 
-export default function Step1Form({ userId, defaultValues }: Step1FormProps) {
+export default function Step1Form({ userId, defaultValues, completedSteps }: Step1FormProps) {
   const router = useRouter();
 
   const {
@@ -43,7 +44,8 @@ export default function Step1Form({ userId, defaultValues }: Step1FormProps) {
 
   const autoSave = useCallback(
     async (data: Partial<Step1Data>) => {
-      await supabase.from('profiles').upsert({ id: userId, ...data });
+      const { error } = await supabase.from('profiles').upsert({ id: userId, ...data });
+      if (!error) toast.success('Saved', { duration: 1500, id: 'autosave' });
     },
     [supabase, userId]
   );
@@ -81,7 +83,7 @@ export default function Step1Form({ userId, defaultValues }: Step1FormProps) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate>
-      <StepProgress currentStep={1} />
+      <StepProgress currentStep={1} completedSteps={completedSteps} />
 
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">About you</h1>

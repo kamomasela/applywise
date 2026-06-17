@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState, useRef } from 'react';
 import { useForm, useFieldArray, useWatch, Controller, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
@@ -95,9 +95,10 @@ interface Step4FormProps {
   userId: string;
   defaultValues?: Partial<Step4Data>;
   existingAcademicId?: string | null;
+  completedSteps?: number[];
 }
 
-export default function Step4Form({ userId, defaultValues, existingAcademicId }: Step4FormProps) {
+export default function Step4Form({ userId, defaultValues, existingAcademicId, completedSteps }: Step4FormProps) {
   const router = useRouter();
 
   const {
@@ -124,6 +125,8 @@ export default function Step4Form({ userId, defaultValues, existingAcademicId }:
   const [markErrors, setMarkErrors] = useState<Record<number, boolean>>({});
 
   const supabase = createClient();
+  // Track the academic row ID across autoSave calls to prevent duplicate inserts
+  const academicIdRef = useRef<string | null>(existingAcademicId ?? null);
 
   const autoSave = useCallback(async () => {
     const data = getValues();
@@ -145,12 +148,24 @@ export default function Step4Form({ userId, defaultValues, existingAcademicId }:
       has_bachelors_endorsement: calculateAPS(data.subjects) >= 23,
     };
 
-    if (existingAcademicId) {
-      await supabase.from('academic_details').update(payload).eq('id', existingAcademicId);
+    let error;
+    if (academicIdRef.current) {
+      ({ error } = await supabase
+        .from('academic_details')
+        .update(payload)
+        .eq('id', academicIdRef.current));
     } else {
-      await supabase.from('academic_details').upsert({ ...payload });
+      const { data: inserted, error: insertErr } = await supabase
+        .from('academic_details')
+        .insert(payload)
+        .select('id')
+        .single();
+      error = insertErr;
+      if (inserted?.id) academicIdRef.current = inserted.id;
     }
-  }, [supabase, userId, existingAcademicId, getValues]);
+
+    if (!error) toast.success('Saved', { duration: 1500, id: 'autosave' });
+  }, [supabase, userId, getValues]);
 
   const onSubmit = async (data: Step4Data) => {
     const enrichedSubjects = data.subjects.map((s) => ({
@@ -173,8 +188,9 @@ export default function Step4Form({ userId, defaultValues, existingAcademicId }:
       has_bachelors_endorsement: calculateAPS(data.subjects) >= 23,
     };
 
-    const { error } = existingAcademicId
-      ? await supabase.from('academic_details').update(payload).eq('id', existingAcademicId)
+    const effectiveId = existingAcademicId ?? academicIdRef.current;
+    const { error } = effectiveId
+      ? await supabase.from('academic_details').update(payload).eq('id', effectiveId)
       : await supabase.from('academic_details').insert(payload);
 
     if (error) {
@@ -193,7 +209,7 @@ export default function Step4Form({ userId, defaultValues, existingAcademicId }:
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate>
-      <StepProgress currentStep={4} />
+      <StepProgress currentStep={4} completedSteps={completedSteps} />
 
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Your school results</h1>

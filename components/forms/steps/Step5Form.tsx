@@ -55,9 +55,10 @@ const DOC_SLOTS: DocSlot[] = [
 interface Step5FormProps {
   userId: string;
   existingDocuments?: Document[];
+  completedSteps?: number[];
 }
 
-export default function Step5Form({ userId, existingDocuments = [] }: Step5FormProps) {
+export default function Step5Form({ userId, existingDocuments = [], completedSteps }: Step5FormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -131,7 +132,7 @@ export default function Step5Form({ userId, existingDocuments = [] }: Step5FormP
 
   return (
     <div>
-      <StepProgress currentStep={5} />
+      <StepProgress currentStep={5} completedSteps={completedSteps} />
 
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Upload your documents</h1>

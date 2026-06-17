@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { getCompletedSteps } from '@/lib/profile-progress';
 import Step2Form from '@/components/forms/steps/Step2Form';
 import type { Step2Data } from '@/lib/validations/profile';
 
@@ -10,11 +11,14 @@ export default async function Step2Page() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('email,phone,province,physical_address,postal_same_as_physical,postal_address')
-    .eq('id', user.id)
-    .single();
+  const [{ data: profile }, completedSteps] = await Promise.all([
+    supabase
+      .from('profiles')
+      .select('email,phone,province,physical_address,postal_same_as_physical,postal_address')
+      .eq('id', user.id)
+      .single(),
+    getCompletedSteps(user.id),
+  ]);
 
   const defaults: Partial<Step2Data> = {
     email:                   profile?.email    ?? '',
@@ -27,7 +31,7 @@ export default async function Step2Page() {
 
   return (
     <div className="mx-auto max-w-lg py-4">
-      <Step2Form userId={user.id} defaultValues={defaults} />
+      <Step2Form userId={user.id} defaultValues={defaults} completedSteps={completedSteps} />
     </div>
   );
 }

@@ -20,6 +20,7 @@ import StepProgress from '@/components/ui/StepProgress';
 interface Step2FormProps {
   userId: string;
   defaultValues?: Partial<Step2Data>;
+  completedSteps?: number[];
 }
 
 const PROVINCE_OPTIONS = SA_PROVINCES.map((p) => ({ value: p, label: p }));
@@ -70,7 +71,7 @@ function AddressFields({
   );
 }
 
-export default function Step2Form({ userId, defaultValues }: Step2FormProps) {
+export default function Step2Form({ userId, defaultValues, completedSteps }: Step2FormProps) {
   const router = useRouter();
 
   const {
@@ -93,7 +94,7 @@ export default function Step2Form({ userId, defaultValues }: Step2FormProps) {
 
   const autoSave = useCallback(async () => {
     const data = getValues();
-    await supabase.from('profiles').upsert({
+    const { error } = await supabase.from('profiles').upsert({
       id: userId,
       email: data.email,
       phone: data.phone,
@@ -102,6 +103,7 @@ export default function Step2Form({ userId, defaultValues }: Step2FormProps) {
       postal_same_as_physical: data.postal_same_as_physical,
       postal_address: data.postal_same_as_physical ? null : data.postal_address,
     });
+    if (!error) toast.success('Saved', { duration: 1500, id: 'autosave' });
   }, [supabase, userId, getValues]);
 
   const onSubmit = async (data: Step2Data) => {
@@ -124,7 +126,7 @@ export default function Step2Form({ userId, defaultValues }: Step2FormProps) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate>
-      <StepProgress currentStep={2} />
+      <StepProgress currentStep={2} completedSteps={completedSteps} />
 
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">How can universities reach you?</h1>

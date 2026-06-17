@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
@@ -22,9 +22,10 @@ interface Step3FormProps {
   userId: string;
   defaultValues?: Partial<Step3Data>;
   existingGuardianId?: string | null;
+  completedSteps?: number[];
 }
 
-export default function Step3Form({ userId, defaultValues, existingGuardianId }: Step3FormProps) {
+export default function Step3Form({ userId, defaultValues, existingGuardianId, completedSteps }: Step3FormProps) {
   const router = useRouter();
 
   const {
@@ -46,35 +47,39 @@ export default function Step3Form({ userId, defaultValues, existingGuardianId }:
     nsfas && HIGH_INCOME_VALUES.includes(income as (typeof HIGH_INCOME_VALUES)[number]);
 
   const supabase = createClient();
+  // Track the guardian row ID across autoSave calls to prevent duplicate inserts
+  const guardianIdRef = useRef<string | null>(existingGuardianId ?? null);
 
   const autoSave = useCallback(async () => {
     const data = getValues();
-    if (existingGuardianId) {
-      await supabase
+    const payload = {
+      full_name:        data.full_name,
+      relationship:     data.relationship,
+      phone:            data.phone,
+      email:            data.email,
+      occupation:       data.occupation ?? null,
+      household_income: data.household_income,
+      nsfas_applicant:  data.nsfas_applicant,
+    };
+
+    let error;
+    if (guardianIdRef.current) {
+      ({ error } = await supabase
         .from('guardian_details')
-        .update({
-          full_name: data.full_name,
-          relationship: data.relationship,
-          phone: data.phone,
-          email: data.email,
-          occupation: data.occupation,
-          household_income: data.household_income,
-          nsfas_applicant: data.nsfas_applicant,
-        })
-        .eq('id', existingGuardianId);
+        .update(payload)
+        .eq('id', guardianIdRef.current));
     } else {
-      await supabase.from('guardian_details').upsert({
-        profile_id: userId,
-        full_name: data.full_name,
-        relationship: data.relationship,
-        phone: data.phone,
-        email: data.email,
-        occupation: data.occupation,
-        household_income: data.household_income,
-        nsfas_applicant: data.nsfas_applicant,
-      });
+      const { data: inserted, error: insertErr } = await supabase
+        .from('guardian_details')
+        .insert({ profile_id: userId, ...payload })
+        .select('id')
+        .single();
+      error = insertErr;
+      if (inserted?.id) guardianIdRef.current = inserted.id;
     }
-  }, [supabase, userId, existingGuardianId, getValues]);
+
+    if (!error) toast.success('Saved', { duration: 1500, id: 'autosave' });
+  }, [supabase, userId, getValues]);
 
   const onSubmit = async (data: Step3Data) => {
     const payload = {
@@ -88,8 +93,9 @@ export default function Step3Form({ userId, defaultValues, existingGuardianId }:
       nsfas_applicant: data.nsfas_applicant,
     };
 
-    const { error } = existingGuardianId
-      ? await supabase.from('guardian_details').update(payload).eq('id', existingGuardianId)
+    const effectiveId = existingGuardianId ?? guardianIdRef.current;
+    const { error } = effectiveId
+      ? await supabase.from('guardian_details').update(payload).eq('id', effectiveId)
       : await supabase.from('guardian_details').insert(payload);
 
     if (error) {
@@ -101,7 +107,7 @@ export default function Step3Form({ userId, defaultValues, existingGuardianId }:
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} noValidate>
-      <StepProgress currentStep={3} />
+      <StepProgress currentStep={3} completedSteps={completedSteps} />
 
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Your parent or guardian</h1>

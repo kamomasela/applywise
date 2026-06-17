@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { getCompletedSteps } from '@/lib/profile-progress';
 import Step4Form from '@/components/forms/steps/Step4Form';
 import type { Step4Data } from '@/lib/validations/profile';
 
@@ -10,11 +11,14 @@ export default async function Step4Page() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: academic } = await supabase
-    .from('academic_details')
-    .select('id,school_name,school_province,school_emis,result_type,matric_year,subjects')
-    .eq('profile_id', user.id)
-    .maybeSingle();
+  const [{ data: academic }, completedSteps] = await Promise.all([
+    supabase
+      .from('academic_details')
+      .select('id,school_name,school_province,school_emis,result_type,matric_year,subjects')
+      .eq('profile_id', user.id)
+      .maybeSingle(),
+    getCompletedSteps(user.id),
+  ]);
 
   const defaults: Partial<Step4Data> = {
     school_name:     academic?.school_name     ?? '',
@@ -31,6 +35,7 @@ export default async function Step4Page() {
         userId={user.id}
         defaultValues={defaults}
         existingAcademicId={academic?.id ?? null}
+        completedSteps={completedSteps}
       />
     </div>
   );

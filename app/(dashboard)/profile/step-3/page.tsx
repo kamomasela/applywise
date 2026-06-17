@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { getCompletedSteps } from '@/lib/profile-progress';
 import Step3Form from '@/components/forms/steps/Step3Form';
 import type { Step3Data } from '@/lib/validations/profile';
 
@@ -10,11 +11,14 @@ export default async function Step3Page() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const { data: guardian } = await supabase
-    .from('guardian_details')
-    .select('id,full_name,relationship,phone,email,occupation,household_income,nsfas_applicant')
-    .eq('profile_id', user.id)
-    .maybeSingle();
+  const [{ data: guardian }, completedSteps] = await Promise.all([
+    supabase
+      .from('guardian_details')
+      .select('id,full_name,relationship,phone,email,occupation,household_income,nsfas_applicant')
+      .eq('profile_id', user.id)
+      .maybeSingle(),
+    getCompletedSteps(user.id),
+  ]);
 
   const defaults: Partial<Step3Data> = {
     full_name:        guardian?.full_name        ?? '',
@@ -32,6 +36,7 @@ export default async function Step3Page() {
         userId={user.id}
         defaultValues={defaults}
         existingGuardianId={guardian?.id ?? null}
+        completedSteps={completedSteps}
       />
     </div>
   );
