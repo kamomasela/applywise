@@ -20,16 +20,16 @@ export interface FileUploadProps {
 
 export default function FileUpload({
   label,
-  documentType,
-  userId,
+  documentType: _documentType,
+  userId: _userId,
   required,
   tooltip,
   existingPath,
   existingName,
-  onUploaded,
+  onUploaded: _onUploaded,
   onDeleted,
 }: FileUploadProps) {
-  const [uploading, setUploading] = useState(false);
+  const [uploading, _setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [fileName, setFileName] = useState<string | null>(existingName ?? null);
   const [uploaded, setUploaded] = useState(!!existingPath);
