@@ -11,14 +11,16 @@ export default async function Step3Page() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [{ data: guardian }, completedSteps] = await Promise.all([
+  const [{ data: guardianRows }, completedSteps] = await Promise.all([
     supabase
       .from('guardian_details')
       .select('id,full_name,relationship,phone,email,occupation,household_income,nsfas_applicant')
       .eq('profile_id', user.id)
-      .maybeSingle(),
+      .order('created_at', { ascending: false })
+      .limit(1),
     getCompletedSteps(user.id),
   ]);
+  const guardian = guardianRows?.[0] ?? null;
 
   const defaults: Partial<Step3Data> = {
     full_name:        guardian?.full_name        ?? '',

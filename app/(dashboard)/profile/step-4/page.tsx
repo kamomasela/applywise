@@ -11,14 +11,16 @@ export default async function Step4Page() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [{ data: academic }, completedSteps] = await Promise.all([
+  const [{ data: academicRows }, completedSteps] = await Promise.all([
     supabase
       .from('academic_details')
       .select('id,school_name,school_province,school_emis,result_type,matric_year,subjects')
       .eq('profile_id', user.id)
-      .maybeSingle(),
+      .order('created_at', { ascending: false })
+      .limit(1),
     getCompletedSteps(user.id),
   ]);
+  const academic = academicRows?.[0] ?? null;
 
   const defaults: Partial<Step4Data> = {
     school_name:     academic?.school_name     ?? '',
