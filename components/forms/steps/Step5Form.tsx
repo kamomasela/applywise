@@ -7,7 +7,6 @@ import toast from 'react-hot-toast';
 
 import { createClient } from '@/lib/supabase/client';
 import FileUpload from '@/components/ui/FileUpload';
-import Tooltip from '@/components/ui/Tooltip';
 import Button from '@/components/ui/Button';
 import StepProgress from '@/components/ui/StepProgress';
 import type { Document, DocumentType } from '@/types';
@@ -154,25 +153,18 @@ export default function Step5Form({ userId, existingDocuments = [] }: Step5FormP
         {DOC_SLOTS.map((slot) => {
           const existing = docs[slot.type];
           return (
-            <div key={slot.type}>
-              <div className="flex items-center gap-1.5 mb-1.5">
-                <span className="text-sm font-medium text-gray-700">
-                  {slot.label}
-                  {slot.required && <span className="text-[#e63946] ml-0.5">*</span>}
-                </span>
-                {slot.tooltip && <Tooltip text={slot.tooltip} />}
-              </div>
-              <FileUpload
-                label={slot.label}
-                documentType={slot.type}
-                userId={userId}
-                required={slot.required}
-                existingPath={existing?.file_path ?? null}
-                existingName={existing?.file_name ?? null}
-                onUploaded={(path, name, size) => handleUploaded(slot.type, path, name, size)}
-                onDeleted={() => handleDeleted(slot.type)}
-              />
-            </div>
+            <FileUpload
+              key={slot.type}
+              label={slot.label}
+              tooltip={slot.tooltip}
+              documentType={slot.type}
+              userId={userId}
+              required={slot.required}
+              existingPath={existing?.file_path ?? null}
+              existingName={existing?.file_name ?? null}
+              onUploaded={(path, name, size) => handleUploaded(slot.type, path, name, size)}
+              onDeleted={() => handleDeleted(slot.type)}
+            />
           );
         })}
       </div>

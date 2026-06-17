@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
-import { useForm, useFieldArray, useWatch, type Resolver } from 'react-hook-form';
+import { useCallback, useMemo, useState } from 'react';
+import { useForm, useFieldArray, useWatch, Controller, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -20,14 +20,76 @@ import Tooltip from '@/components/ui/Tooltip';
 import StepProgress from '@/components/ui/StepProgress';
 
 const PROVINCE_OPTIONS = SA_PROVINCES.map((p) => ({ value: p, label: p }));
-const SUBJECT_OPTIONS = NSC_SUBJECT_NAMES.map((n) => ({ value: n, label: n }));
-const CURRENT_YEAR = new Date().getFullYear();
-const MATRIC_YEAR_OPTIONS = [
-  { value: String(CURRENT_YEAR),     label: String(CURRENT_YEAR) },
-  { value: String(CURRENT_YEAR + 1), label: String(CURRENT_YEAR + 1) },
-];
+const MATRIC_YEAR_OPTIONS = Array.from({ length: 15 }, (_, i) => 2027 - i).map((y) => ({
+  value: String(y),
+  label: String(y),
+}));
 
 const EMPTY_SUBJECT = { subject_name: '', mark: 0 };
+
+// ── Searchable subject combobox (Fix 3) ───────────────────────────────────────
+
+function SubjectCombobox({
+  value,
+  onChange,
+  hasError,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  hasError: boolean;
+}) {
+  const [query, setQuery]   = useState('');
+  const [open, setOpen]     = useState(false);
+
+  const filtered = useMemo(() => {
+    const q = query.toLowerCase().trim();
+    if (!q) return NSC_SUBJECT_NAMES.slice(0, 8);
+    return NSC_SUBJECT_NAMES.filter((n) => n.toLowerCase().includes(q));
+  }, [query]);
+
+  const handleSelect = (name: string) => {
+    setQuery('');
+    onChange(name);
+    setOpen(false);
+  };
+
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        value={open ? query : (value || query)}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true); if (!e.target.value) onChange(''); }}
+        onFocus={() => { setQuery(''); setOpen(true); }}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        placeholder="Search subject…"
+        autoComplete="off"
+        className={[
+          'w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-gray-900 transition-colors',
+          'focus:outline-none focus:ring-2 focus:ring-[#0b4f6c] focus:border-transparent',
+          hasError ? 'border-[#e63946]' : 'border-gray-300',
+        ].join(' ')}
+      />
+      {open && filtered.length > 0 && (
+        <ul className="absolute z-50 mt-1 w-full max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg text-left">
+          {filtered.map((name) => (
+            <li key={name}>
+              <button
+                type="button"
+                onMouseDown={() => handleSelect(name)}
+                className={[
+                  'w-full text-left px-3 py-2 text-sm transition-colors hover:bg-gray-50',
+                  name === value ? 'bg-[#0b4f6c]/10 font-medium text-[#0b4f6c]' : 'text-gray-700',
+                ].join(' ')}
+              >
+                {name}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 interface Step4FormProps {
   userId: string;
@@ -47,7 +109,7 @@ export default function Step4Form({ userId, defaultValues, existingAcademicId }:
   } = useForm<Step4Data>({
     resolver: zodResolver(step4Schema) as Resolver<Step4Data>,
     defaultValues: {
-      matric_year: CURRENT_YEAR,
+      matric_year: new Date().getFullYear(),
       subjects: defaultValues?.subjects?.length
         ? defaultValues.subjects
         : Array(6).fill(null).map(() => ({ ...EMPTY_SUBJECT })),
@@ -59,6 +121,7 @@ export default function Step4Form({ userId, defaultValues, existingAcademicId }:
   const subjects = useWatch({ control, name: 'subjects', defaultValue: [] });
 
   const apsScore = useMemo(() => calculateAPS(subjects), [subjects]);
+  const [markErrors, setMarkErrors] = useState<Record<number, boolean>>({});
 
   const supabase = createClient();
 
@@ -157,15 +220,15 @@ export default function Step4Form({ userId, defaultValues, existingAcademicId }:
 
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center gap-1.5">
-            <label className="text-sm font-medium text-gray-700">School EMIS number (optional)</label>
+            <label htmlFor="school-emis" className="text-sm font-medium text-gray-700">School EMIS number (optional)</label>
             <Tooltip text="Your school's 9-digit government registration number. You can find this on your school report or ask your teacher." />
           </div>
-          <Input
-            label="School EMIS number (optional)"
+          <input
+            id="school-emis"
             placeholder="000000000"
             maxLength={9}
             inputMode="numeric"
-            id="school-emis"
+            className="w-full rounded-lg border border-gray-300 hover:border-gray-400 bg-white px-4 py-3 text-base text-gray-900 placeholder:text-gray-400 transition-colors focus:outline-none focus:ring-2 focus:ring-[#0b4f6c] focus:border-transparent"
             {...register('school_emis', { onBlur: autoSave })}
           />
         </div>
@@ -239,22 +302,21 @@ export default function Step4Form({ userId, defaultValues, existingAcademicId }:
               const subjectErr = (errors.subjects as SubjectFieldError[] | undefined)?.[i];
 
               return (
-                <div key={field.id} className="grid grid-cols-[1fr_72px_44px_44px_36px] gap-1.5 items-start">
-                  {/* Subject dropdown */}
+                <div key={field.id}>
+                <div className="grid grid-cols-[1fr_72px_44px_44px_36px] gap-1.5 items-start">
+                  {/* Subject combobox */}
                   <div>
-                    <select
-                      className={[
-                        'w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-gray-900 transition-colors',
-                        'focus:outline-none focus:ring-2 focus:ring-[#0b4f6c] focus:border-transparent',
-                        subjectErr?.subject_name ? 'border-[#e63946]' : 'border-gray-300',
-                      ].join(' ')}
-                      {...register(`subjects.${i}.subject_name`, { onBlur: autoSave })}
-                    >
-                      <option value="">Select…</option>
-                      {SUBJECT_OPTIONS.map((o) => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
+                    <Controller
+                      control={control}
+                      name={`subjects.${i}.subject_name`}
+                      render={({ field: cf }) => (
+                        <SubjectCombobox
+                          value={cf.value}
+                          onChange={(v) => { cf.onChange(v); autoSave(); }}
+                          hasError={!!subjectErr?.subject_name}
+                        />
+                      )}
+                    />
                     {isLO && (
                       <p className="mt-0.5 text-[10px] text-gray-400 flex items-center gap-0.5">
                         <Info size={10} />
@@ -265,18 +327,27 @@ export default function Step4Form({ userId, defaultValues, existingAcademicId }:
 
                   {/* Mark */}
                   <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    step={1}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={3}
                     placeholder="0"
                     className={[
                       'w-full rounded-lg border bg-white px-2 py-2.5 text-sm text-center text-gray-900 transition-colors tabular-nums',
                       'focus:outline-none focus:ring-2 focus:ring-[#0b4f6c] focus:border-transparent',
-                      subjectErr?.mark ? 'border-[#e63946]' : 'border-gray-300',
+                      markErrors[i] || subjectErr?.mark ? 'border-[#e63946]' : 'border-gray-300',
                     ].join(' ')}
                     {...register(`subjects.${i}.mark`, {
                       setValueAs: (v) => (v === '' || v === null ? NaN : Number(v)),
+                      onChange: (e) => {
+                        const raw = e.target.value.replace(/[^\d]/g, '').slice(0, 3);
+                        if (raw && Number(raw) > 100) {
+                          e.target.value = '';
+                          setMarkErrors((prev) => ({ ...prev, [i]: true }));
+                        } else {
+                          e.target.value = raw;
+                          if (markErrors[i]) setMarkErrors((prev) => ({ ...prev, [i]: false }));
+                        }
+                      },
                       onBlur: autoSave,
                     })}
                   />
@@ -304,6 +375,10 @@ export default function Step4Form({ userId, defaultValues, existingAcademicId }:
                   >
                     <Trash2 size={15} />
                   </button>
+                </div>
+                {markErrors[i] && (
+                  <p className="mt-0.5 text-xs text-[#e63946]">Mark cannot be more than 100</p>
+                )}
                 </div>
               );
             })}

@@ -69,6 +69,7 @@ export const HOUSEHOLD_INCOME_OPTIONS = [
 export const HIGH_INCOME_VALUES = ['above_r40000'] as const;
 
 export const RESULT_TYPES = [
-  { value: 'grade11_final',      label: 'Grade 11 Final Results' },
-  { value: 'grade12_midyear',   label: 'Grade 12 Mid-Year (Term 2) Results' },
+  { value: 'grade11_final',    label: 'Grade 11 Final Results' },
+  { value: 'grade12_midyear', label: 'Grade 12 Mid-Year (Term 2) Results' },
+  { value: 'grade12_final',   label: 'Grade 12 Final Results' },
 ] as const;
